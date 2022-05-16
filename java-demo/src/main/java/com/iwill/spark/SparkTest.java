@@ -4,10 +4,13 @@ import com.google.common.base.Splitter;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.api.java.function.MapFunction;
+import org.apache.spark.sql.*;
+import org.apache.spark.sql.api.java.UDF1;
+import org.apache.spark.sql.api.java.UDF2;
+import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+import scala.Function1;
 import scala.Tuple2;
 
 import java.util.List;
@@ -15,13 +18,35 @@ import java.util.Properties;
 
 import static java.util.Arrays.asList;
 import static org.apache.spark.sql.SaveMode.Overwrite;
+import static org.apache.spark.sql.functions.col;
+import static org.apache.spark.sql.functions.lit;
+import static org.apache.spark.sql.types.DataTypes.TimestampType;
 
 public class SparkTest {
 
     public static void main(String[] args) throws Exception {
         //wordOperate();
-        //operateTable();
-        transferData();
+        operateTable();
+        //transferData();
+        //basicOperation();
+    }
+
+    private static void basicOperation() throws Exception{
+        SparkSession sparkSession = SparkSession.builder().appName("basicOperation").config("spark.master", "local").getOrCreate();
+        Dataset<String> dataset = sparkSession.read().textFile("/Users/jiyang12/Github/spark-demo/java-demo/src/main/resources/person.txt");
+        Encoder<Person> encoder = Encoders.bean(Person.class);
+        Dataset<Person> personDataSet = dataset.map(new MapFunction<String, Person>() {
+            @Override
+            public Person call(String value) throws Exception {
+                String[] list = value.split(",");
+                return new Person(Integer.parseInt(list[0]),list[1], Integer.parseInt(list[2]));
+            }
+        }, encoder);
+        Dataset<Row>  personDataFrame = personDataSet.toDF();
+        personDataFrame.show();
+        personDataFrame.createTempView("tbl_person");
+        Dataset<Row>  selectedPersonDataFrame  = sparkSession.sql("SELECT * FROM tbl_person WHERE id = 1");
+        selectedPersonDataFrame.show();
 
     }
 
@@ -38,8 +63,31 @@ public class SparkTest {
         sparkSession.stop();
     }
 
-    private static void operateTable() {
+    private static void operateTable() throws Exception {
         SparkSession sparkSession = SparkSession.builder().appName("operateTable").config("spark.master", "local").getOrCreate();
+        sparkSession.udf().register("test_udf", new UDF1<String, String>() {
+            @Override
+            public String call(String s) throws Exception {
+                if (s.equals("shanghai")){
+                    return "correct address";
+                }
+                return "wrong address";
+            }
+        }, DataTypes.StringType);
+
+        Dataset<Row> df = sparkSession.read()
+                .format("jdbc")
+                .option("user","root")
+                .option("password","12345678")
+                .option("driver","com.mysql.cj.jdbc.Driver")
+                .option("url","jdbc:mysql://localhost:3306/test")
+                .option("dbtable","(select * from test_1 where age<=2) as t")
+                //.option("query","select * from test_1 where age<=2")
+                .load();
+        df.show();
+        df.createTempView("test_1");
+        Dataset<Row> test = sparkSession.sql("select test_udf(address) from test_1");
+        test.show();
 
         Properties properties = new Properties();
         properties.setProperty("user", "root");
@@ -47,6 +95,7 @@ public class SparkTest {
         properties.setProperty("driver", "com.mysql.cj.jdbc.Driver");
 
         Dataset<Row> rows = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/xxl_job", "xxl_job_info", properties);
+
         rows.foreach(row -> {
             System.out.print("==========================");
             System.out.print("id : " + row.getInt(0));
@@ -64,7 +113,7 @@ public class SparkTest {
         properties.setProperty("password", "12345678");
         properties.setProperty("driver", "com.mysql.cj.jdbc.Driver");
 
-        Dataset<Row> personInfoDs = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/test", "person_info", properties).select("*");
+        Dataset<Row> personInfoDs = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/test", "test_1", properties).select("*");
         //Dataset<Row> deequ_test_1 = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/test", "deequ_test_1", properties).select("*");
         //Dataset<Row> jointResult = deequ_test.join(deequ_test_1 ,deequ_test_1.col("id").equalTo(deequ_test.col("id")) ,"left");
         //deequ_test = deequ_test.withColumn("map",functions.map(deequ_test.col("id"),deequ_test.col("settlement_type"),deequ_test.col("age"),deequ_test.col("ad_engine")));
@@ -78,10 +127,17 @@ public class SparkTest {
         Dataset<Row> test2 = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/test", "test_2", properties).select("*");
         Dataset<Row> test3 = sparkSession.read().jdbc("jdbc:mysql://localhost:3306/test", "test_3", properties).select("*");
 */
-        personInfoDs = personInfoDs.drop("age");
+        personInfoDs = personInfoDs.withColumn("test_date",lit("29991231"));
+        personInfoDs = personInfoDs.withColumn("base_date_1",lit("29991231"));
+        personInfoDs = personInfoDs.select(col("base_date_1"), col("test_date").cast(TimestampType).as("test_1"));
+        personInfoDs = personInfoDs.withColumn("test_date",lit("2999-12-31 00:00:00.000"));
+        personInfoDs = personInfoDs.withColumn("base_date_2",lit("2999-12-31 00:00:00.000"));
+        personInfoDs = personInfoDs.select(col("base_date_1"),col("test_1"),col("base_date_2"),col("test_date").cast(TimestampType).as("test_2"));
+        personInfoDs.show();
+/*        personInfoDs = personInfoDs.drop("age");
         List<String> schemaColumns = asList(StructType.fromDDL("person_info.ddl").fieldNames());
         personInfoDs =personInfoDs.select(schemaColumns.get(0),schemaColumns.subList(1 ,schemaColumns.size()).toArray(new String[0]));
-        personInfoDs.write().mode(Overwrite)./*format()*/option("compression","snappy").save("test/person_info");
+        personInfoDs.write().mode(Overwrite).*//*format()*//*option("compression","snappy").save("test/person_info");*/
 /*        test1.write()
                 .format("jdbc")
                 .mode(Append)
