@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.sql;
 
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.*;

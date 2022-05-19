@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.sql;
 
 public class Person {
 

@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.basic;
 
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;

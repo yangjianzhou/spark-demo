@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.basic;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;

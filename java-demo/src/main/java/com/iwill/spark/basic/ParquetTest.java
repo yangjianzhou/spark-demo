@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.basic;
 
 import org.apache.spark.api.java.function.FilterFunction;
 import org.apache.spark.sql.Dataset;

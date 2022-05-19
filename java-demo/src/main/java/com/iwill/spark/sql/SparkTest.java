@@ -1,4 +1,4 @@
-package com.iwill.spark;
+package com.iwill.spark.sql;
 
 import com.google.common.base.Splitter;
 import org.apache.spark.SparkConf;
@@ -7,17 +7,12 @@ import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.api.java.UDF1;
-import org.apache.spark.sql.api.java.UDF2;
 import org.apache.spark.sql.types.DataTypes;
-import org.apache.spark.sql.types.StructType;
-import scala.Function1;
 import scala.Tuple2;
 
 import java.util.List;
 import java.util.Properties;
 
-import static java.util.Arrays.asList;
-import static org.apache.spark.sql.SaveMode.Overwrite;
 import static org.apache.spark.sql.functions.col;
 import static org.apache.spark.sql.functions.lit;
 import static org.apache.spark.sql.types.DataTypes.TimestampType;
